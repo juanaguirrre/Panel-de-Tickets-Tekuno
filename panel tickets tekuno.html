@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Tickets - Tekuno</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        tekuno: {
+                            dark: '#1A2733',
+                            blue: '#537892',
+                            accent: '#FF4A33',
+                            taupe: '#B79A97',
+                            light: '#F4F6F8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome Icons & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f6f8;
+            color: #1A2733;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #537892;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1A2733;
+        }
+
+        .header-bg {
+            background: linear-gradient(135deg, #1A2733 0%, #283a4c 60%, #537892 100%);
+        }
+
+        .card-hover {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -6px rgba(26, 39, 51, 0.15), 0 4px 6px -2px rgba(26, 39, 51, 0.05);
+        }
+
+        .tab-btn {
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background-color: #ffffff;
+            color: #1A2733;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .modal-blur {
+            backdrop-filter: blur(6px);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Top Header Navigation -->
+    <header class="header-bg text-white shadow-lg sticky top-0 z-30 border-b border-[#537892]/30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Brand SVG Logo & Info -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center">
+                    <!-- TEKUNO Vector Logo in complete white -->
+                    <svg class="h-8 w-auto" viewBox="0 0 260 55" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="TEKUNO Logo">
+                        <!-- TEKUN in solid white -->
+                        <text x="0" y="42" font-family="'Inter', sans-serif" font-weight="900" font-size="46" fill="#FFFFFF" letter-spacing="-1">TEKUN</text>
+                        <!-- Overlapping double O circles in pure white -->
+                        <circle cx="218" cy="27" r="20" stroke="#FFFFFF" stroke-width="8" fill="none"/>
+                        <circle cx="230" cy="27" r="20" stroke="#FFFFFF" stroke-width="8" fill="none"/>
+                    </svg>
+                </div>
+                <div class="h-6 w-px bg-white/20 hidden sm:block"></div>
+                <span class="text-xs font-semibold uppercase tracking-widest text-blue-100/90 hidden sm:inline-block">Panel de Tickets</span>
+            </div>
+
+            <!-- View Switcher Tabs -->
+            <div class="bg-[#1A2733]/60 p-1.5 rounded-xl backdrop-blur-md flex items-center border border-white/15 w-full sm:w-auto justify-center">
+                <button id="btn-view-bar" onclick="switchView('bar')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 text-slate-200 hover:text-white">
+                    <i class="fa-solid fa-chart-column text-[#FF4A33]"></i>
+                    <span>Vista 1: Gráfico de Barras</span>
+                </button>
+                <button id="btn-view-donut" onclick="switchView('donut')" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-chart-pie text-[#537892]"></i>
+                    <span>Vista 2: Gráfico de Rosquilla</span>
+                </button>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center gap-3">
+                <button onclick="openDataEditorModal()" class="bg-[#FF4A33] hover:bg-[#e03a24] text-white px-3.5 py-2 rounded-lg backdrop-blur-md transition-all text-sm font-semibold flex items-center gap-2 shadow-xs" title="Editar datos en vivo">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span class="text-xs font-medium hidden sm:inline">Editar Datos</span>
+                </button>
+                <button onclick="refreshData()" class="bg-white/10 hover:bg-white/20 text-white px-3.5 py-2 rounded-lg backdrop-blur-md border border-white/20 transition-all text-sm flex items-center gap-2" title="Actualizar datos">
+                    <i class="fa-solid fa-rotate-right" id="refresh-icon"></i>
+                    <span class="text-xs font-medium hidden sm:inline">Actualizar</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Metrics & Filter Bar -->
+        <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-6">
+            
+            <!-- Global Counters -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-grow">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-center">
+                    <span class="text-xs font-semibold text-[#537892] uppercase tracking-wide">Total Histórico</span>
+                    <span class="text-2xl font-black text-[#1A2733]" id="stat-total-acumulado">1,951</span>
+                </div>
+                <div class="bg-orange-50/70 border border-[#FF4A33]/20 rounded-xl p-3.5 flex flex-col justify-center">
+                    <span class="text-xs font-semibold text-[#FF4A33] uppercase tracking-wide">Tickets Nuevos</span>
+                    <span class="text-2xl font-black text-[#FF4A33]" id="stat-total-nuevos">2</span>
+                </div>
+                <div class="bg-blue-50/70 border border-[#537892]/20 rounded-xl p-3.5 flex flex-col justify-center">
+                    <span class="text-xs font-semibold text-[#537892] uppercase tracking-wide">Tickets Activos</span>
+                    <span class="text-2xl font-black text-[#537892]" id="stat-total-activos">19</span>
+                </div>
+                <div class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 flex flex-col justify-center">
+                    <span class="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Tickets Cerrados</span>
+                    <span class="text-2xl font-black text-emerald-600" id="stat-total-cerrados">1,930</span>
+                </div>
+            </div>
+
+            <!-- Total Abiertos KPI Highlight -->
+            <div class="bg-[#1A2733] text-white rounded-xl px-6 py-4 shadow-md flex items-center justify-between gap-6 shrink-0 border border-[#537892]/40">
+                <div>
+                    <span class="text-xs font-semibold uppercase text-[#B79A97] tracking-wider block">Total Abiertos</span>
+                    <span class="text-xs text-slate-300">Requieren Atención</span>
+                </div>
+                <span class="text-4xl font-extrabold text-[#FF4A33] drop-shadow-sm" id="stat-total-abiertos">21</span>
+            </div>
+        </section>
+
+        <!-- Dynamic Filter Controls -->
+        <section class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div class="relative w-full sm:w-80">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-[#537892] text-sm"></i>
+                <input type="text" id="search-input" onkeyup="filterDepartments()" placeholder="Buscar departamento..." 
+                       class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-[#1A2733] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#537892] focus:bg-white transition-all">
+            </div>
+
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <label for="status-filter" class="text-xs font-semibold text-[#537892] whitespace-nowrap">Filtrar por Estado:</label>
+                <select id="status-filter" onchange="filterDepartments()" class="bg-slate-50 border border-slate-200 text-[#1A2733] text-xs font-semibold rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#537892]">
+                    <option value="all">Todos los Departamentos</option>
+                    <option value="open">Solo con Tickets Abiertos</option>
+                    <option value="resolved">Solo Incidentes Resueltos</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Departments Cards Grid Container -->
+        <section id="departments-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic JavaScript card injection target -->
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-5 text-center text-xs text-[#537892] mt-auto">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>&copy; 2026 Tekuno. Todos los derechos reservados.</span>
+            <div class="flex items-center gap-4 text-slate-400">
+                <span class="hover:text-[#1A2733] cursor-pointer">Soporte Técnico</span>
+                <span>&bull;</span>
+                <span class="hover:text-[#1A2733] cursor-pointer">Documentación SLA</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Detail Drill-down Modal -->
+    <div id="detail-modal" class="fixed inset-0 bg-[#1A2733]/70 modal-blur z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="p-5 header-bg text-white flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
+                        <i class="fa-solid fa-folder-open text-[#FF4A33] text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white" id="modal-title">Nombre Departamento</h2>
+                        <p class="text-xs text-blue-100 opacity-90" id="modal-subtitle">Detalle de incidencias y desglose operativo</p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto space-y-6">
+                <!-- Summary KPI Row in Modal -->
+                <div class="grid grid-cols-4 gap-3">
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                        <span class="text-[10px] uppercase font-bold text-[#537892] block">Total</span>
+                        <span class="text-lg font-black text-[#1A2733]" id="modal-stat-total">0</span>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-xl border border-[#FF4A33]/20 text-center">
+                        <span class="text-[10px] uppercase font-bold text-[#FF4A33] block">Nuevos</span>
+                        <span class="text-lg font-black text-[#FF4A33]" id="modal-stat-nuevo">0</span>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-xl border border-[#537892]/20 text-center">
+                        <span class="text-[10px] uppercase font-bold text-[#537892] block">Activos</span>
+                        <span class="text-lg font-black text-[#537892]" id="modal-stat-activo">0</span>
+                    </div>
+                    <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+                        <span class="text-[10px] uppercase font-bold text-emerald-600 block">Cerrados</span>
+                        <span class="text-lg font-black text-emerald-700" id="modal-stat-cerrado">0</span>
+                    </div>
+                </div>
+
+                <!-- Incident SLA Banner -->
+                <div class="p-3.5 bg-purple-50 border border-[#B79A97]/40 rounded-xl flex items-center justify-between text-xs text-[#1A2733]">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-regular fa-calendar-check text-[#537892] text-base"></i>
+                        <span>Registro de continuidad sin interrupciones severas:</span>
+                    </div>
+                    <span class="font-extrabold bg-[#B79A97]/30 px-2.5 py-1 rounded-md text-[#1A2733]" id="modal-days-count">0 DÍAS SIN INCIDENTES</span>
+                </div>
+
+                <!-- Incident Table -->
+                <div>
+                    <h4 class="text-xs font-bold text-[#1A2733] uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-[#537892]"></i>
+                        Tickets de Atención Prioritaria
+                    </h4>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 border-b border-slate-200 font-bold text-[#1A2733]">
+                                <tr>
+                                    <th class="p-3">ID Ticket</th>
+                                    <th class="p-3">Asunto</th>
+                                    <th class="p-3">Estado</th>
+                                    <th class="p-3">Prioridad</th>
+                                    <th class="p-3 text-right">Tiempo SLA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-tickets-table" class="divide-y divide-slate-100">
+                                <!-- Dynamic JS tickets injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <span class="text-xs text-[#537892]" id="modal-footer-info">
+                    SLA Medio de Respuesta: <strong class="text-[#1A2733]">1.2 horas</strong>
+                </span>
+                <button onclick="closeModal()" class="px-5 py-2 bg-[#1A2733] hover:bg-[#283a4c] text-white font-semibold text-xs rounded-lg transition-all shadow-xs">
+                    Cerrar Detalle
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Live Data Editor Modal -->
+    <div id="data-editor-modal" class="fixed inset-0 bg-[#1A2733]/70 modal-blur z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="p-5 header-bg text-white flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
+                        <i class="fa-solid fa-[#FF4A33] fa-sliders text-[#FF4A33] text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Gestión y Edición de Datos en Vivo</h2>
+                        <p class="text-xs text-blue-100 opacity-90">Modifique las cifras por departamento para actualizar los gráficos automáticamente</p>
+                    </div>
+                </div>
+                <button onclick="closeDataEditorModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Editor Form -->
+            <div class="p-6 overflow-y-auto space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-[#537892]">Departamentos Configurados</span>
+                    <button onclick="addNewDepartmentRow()" class="bg-[#537892] hover:bg-[#1A2733] text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-plus text-xs"></i> Agregar Departamento
+                    </button>
+                </div>
+
+                <div class="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-200 font-bold text-[#1A2733]">
+                            <tr>
+                                <th class="p-3">Departamento</th>
+                                <th class="p-3 w-24">Nuevos</th>
+                                <th class="p-3 w-24">Activos</th>
+                                <th class="p-3 w-28">Cerrados</th>
+                                <th class="p-3 w-32">Días sin Incidencias</th>
+                                <th class="p-3 text-center w-16">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="editor-rows-container" class="divide-y divide-slate-100">
+                            <!-- Rows generated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="resetDataToDefault()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-[#1A2733] font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i> Restablecer Valores
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeDataEditorModal()" class="px-4 py-2 border border-slate-300 text-slate-700 font-semibold text-xs rounded-lg hover:bg-slate-100 transition-all">
+                        Cancelar
+                    </button>
+                    <button onclick="saveDataFromEditor()" class="px-5 py-2 bg-[#FF4A33] hover:bg-[#e03a24] text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar y Actualizar
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // Default initial dataset
+        const defaultDepartmentsData = [
+            {
+                name: "Odoo",
+                total: 46,
+                nuevo: 1,
+                activo: 1,
+                cerrado: 44,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-OD-901", title: "Error en conciliación bancaria contable", status: "Nuevo", priority: "Alta", sla: "15m" },
+                    { id: "TK-OD-884", title: "Ajuste de permisos en módulo de Inventarios", status: "Activo", priority: "Media", sla: "1h 20m" }
+                ]
+            },
+            {
+                name: "Laserfiche",
+                total: 215,
+                nuevo: 0,
+                activo: 3,
+                cerrado: 212,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-LF-430", title: "Indexación de flujos de trabajo en lote", status: "Activo", priority: "Alta", sla: "45m" },
+                    { id: "TK-LF-412", title: "Sincronización de repositorio de documentos", status: "Activo", priority: "Baja", sla: "3h 10m" },
+                    { id: "TK-LF-399", title: "Revisión de licencias en servidor principal", status: "Activo", priority: "Media", sla: "2h 05m" }
+                ]
+            },
+            {
+                name: "Microsoft",
+                total: 23,
+                nuevo: 0,
+                activo: 0,
+                cerrado: 23,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-MS-104", title: "Renovación de buzón seguro Exchange", status: "Cerrado", priority: "Baja", sla: "Resuelto" }
+                ]
+            },
+            {
+                name: "Plataforma digital",
+                total: 9,
+                nuevo: 1,
+                activo: 0,
+                cerrado: 8,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-PD-052", title: "Falla de autenticación en portal de clientes", status: "Nuevo", priority: "Crítica", sla: "10m" }
+                ]
+            },
+            {
+                name: "Mantenimiento",
+                total: 408,
+                nuevo: 0,
+                activo: 9,
+                cerrado: 399,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-MT-711", title: "Mantenimiento preventivo en servidor UPS", status: "Activo", priority: "Alta", sla: "50m" },
+                    { id: "TK-MT-698", title: "Revisión de cableado estructurado Rack 3", status: "Activo", priority: "Media", sla: "2h 40m" }
+                ]
+            },
+            {
+                name: "Soporte Mizza",
+                total: 1250,
+                nuevo: 0,
+                activo: 6,
+                cerrado: 1244,
+                diasSinIncidentes: 0,
+                tickets: [
+                    { id: "TK-MZ-992", title: "Configuración de terminales PDV Mizza", status: "Activo", priority: "Alta", sla: "30m" },
+                    { id: "TK-MZ-980", title: "Actualización de parches en punto de venta", status: "Activo", priority: "Media", sla: "1h 45m" }
+                ]
+            }
+        ];
+
+        // Load dataset from localStorage if exists, or fallback to defaults
+        let departmentsData = [];
+
+        function loadDataset() {
+            const saved = localStorage.getItem('tekuno_departments_data');
+            if (saved) {
+                try {
+                    departmentsData = JSON.parse(saved);
+                } catch(e) {
+                    departmentsData = JSON.parse(JSON.stringify(defaultDepartmentsData));
+                }
+            } else {
+                departmentsData = JSON.parse(JSON.stringify(defaultDepartmentsData));
+            }
+        }
+        loadDataset();
+
+        // Track active view state
+        let activeView = 'bar'; // 'bar' or 'donut'
+        let chartInstances = [];
+
+        // Chart.js Global Settings
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#537892';
+
+        // Function to create HTML for View 1 (Bar Chart View)
+        function createBarCardHTML(dept, index) {
+            return `
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/90 p-6 card-hover flex flex-col h-full cursor-pointer group"
+                     onclick="openDetailModal(${index})">
+                    
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-[#1A2733] group-hover:text-[#FF4A33] transition-colors flex items-center gap-2">
+                                ${dept.name}
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs opacity-0 group-hover:opacity-100 transition-opacity text-[#537892]"></i>
+                            </h3>
+                            <p class="text-xs text-[#537892] font-medium mt-0.5">${dept.total} Tickets acumulados</p>
+                        </div>
+                        <div class="bg-[#B79A97]/20 text-[#1A2733] px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#B79A97]/40 shadow-2xs">
+                            <i class="fa-regular fa-calendar-check text-[#537892]"></i>
+                            <span>${dept.diasSinIncidentes} DÍAS SIN INCIDENTES</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats Quick Pills -->
+                    <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                        <div class="px-2 py-1.5 rounded-lg bg-orange-50 border border-[#FF4A33]/20">
+                            <span class="text-[10px] font-bold text-[#FF4A33] uppercase block">Nuevo</span>
+                            <span class="font-bold text-[#1A2733] text-sm">${dept.nuevo}</span>
+                        </div>
+                        <div class="px-2 py-1.5 rounded-lg bg-blue-50 border border-[#537892]/20">
+                            <span class="text-[10px] font-bold text-[#537892] uppercase block">Activo</span>
+                            <span class="font-bold text-[#1A2733] text-sm">${dept.activo}</span>
+                        </div>
+                        <div class="px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                            <span class="text-[10px] font-bold text-emerald-600 uppercase block">Cerrados</span>
+                            <span class="font-bold text-[#1A2733] text-sm">${dept.cerrado}</span>
+                        </div>
+                    </div>
+
+                    <!-- Bar Chart Canvas Container -->
+                    <div class="relative h-44 w-full mt-auto pt-2">
+                        <canvas id="bar-chart-${index}"></canvas>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Function to create HTML for View 2 (Donut Chart View)
+        function createDonutCardHTML(dept, index) {
+            return `
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/90 p-6 card-hover flex flex-col h-full cursor-pointer group"
+                     onclick="openDetailModal(${index})">
+                    
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-[#1A2733] group-hover:text-[#FF4A33] transition-colors flex items-center gap-2">
+                                ${dept.name}
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs opacity-0 group-hover:opacity-100 transition-opacity text-[#537892]"></i>
+                            </h3>
+                            <p class="text-xs text-[#537892] font-medium mt-0.5">${dept.total} Tickets en total</p>
+                        </div>
+                        <div class="bg-[#B79A97]/20 text-[#1A2733] px-3 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 border border-[#B79A97]/40">
+                            <i class="fa-regular fa-calendar-check text-[#537892]"></i> ${dept.diasSinIncidentes} DÍAS SIN INCIDENTES
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 flex-grow items-center">
+                        <!-- Donut Canvas Container -->
+                        <div class="relative h-36 flex items-center justify-center">
+                            <canvas id="donut-chart-${index}"></canvas>
+                        </div>
+
+                        <!-- Side Metrics List -->
+                        <div class="flex flex-col justify-center gap-2 text-xs">
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-orange-50 border border-[#FF4A33]/20">
+                                <span class="font-semibold text-[#FF4A33] uppercase text-[10px]">Nuevo</span>
+                                <span class="font-bold text-[#1A2733] text-sm">${dept.nuevo}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-blue-50 border border-[#537892]/20">
+                                <span class="font-semibold text-[#537892] uppercase text-[10px]">Activo</span>
+                                <span class="font-bold text-[#1A2733] text-sm">${dept.activo}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                                <span class="font-semibold text-emerald-600 uppercase text-[10px]">Cerrados</span>
+                                <span class="font-bold text-[#1A2733] text-sm">${dept.cerrado}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Destroy existing Chart instances
+        function destroyExistingCharts() {
+            chartInstances.forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            chartInstances = [];
+        }
+
+        // Render Bar Charts (Vista 1)
+        function initBarCharts(filteredData = departmentsData) {
+            destroyExistingCharts();
+
+            filteredData.forEach((dept, index) => {
+                const canvas = document.getElementById(`bar-chart-${index}`);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+
+                const newChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Nuevos', 'Activos', 'Cerrados'],
+                        datasets: [{
+                            label: 'Incidencias',
+                            data: [dept.nuevo, dept.activo, dept.cerrado],
+                            backgroundColor: [
+                                '#FF4A33', // Vibrant Vermilion
+                                '#537892', // Steel Blue
+                                '#10B981'  // Emerald
+                            ],
+                            borderColor: [
+                                '#FF4A33',
+                                '#537892',
+                                '#10B981'
+                            ],
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                            barPercentage: 0.65
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1A2733',
+                                titleFont: { size: 12, weight: 'bold' },
+                                bodyFont: { size: 13 },
+                                padding: 10,
+                                cornerRadius: 8
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#f1f5f9' },
+                                ticks: { precision: 0, font: { size: 10 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { size: 11, weight: '600' } }
+                            }
+                        },
+                        animation: { duration: 600 }
+                    }
+                });
+
+                chartInstances.push(newChart);
+            });
+        }
+
+        // Render Donut Charts (Vista 2)
+        function initDonutCharts(filteredData = departmentsData) {
+            destroyExistingCharts();
+
+            filteredData.forEach((dept, index) => {
+                const canvas = document.getElementById(`donut-chart-${index}`);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+
+                const hasData = dept.nuevo > 0 || dept.activo > 0 || dept.cerrado > 0;
+
+                const newChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Nuevo', 'Activo', 'Cerrado'],
+                        datasets: [{
+                            data: hasData ? [dept.nuevo, dept.activo, dept.cerrado] : [0, 0, 1],
+                            backgroundColor: hasData ? [
+                                '#FF4A33',
+                                '#537892',
+                                '#10B981'
+                            ] : ['#e2e8f0', '#e2e8f0', '#e2e8f0'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1A2733',
+                                padding: 10,
+                                cornerRadius: 8
+                            }
+                        },
+                        animation: { duration: 600 }
+                    }
+                });
+
+                chartInstances.push(newChart);
+            });
+        }
+
+        // Switch View Controller
+        function switchView(view) {
+            activeView = view;
+            
+            const btnBar = document.getElementById('btn-view-bar');
+            const btnDonut = document.getElementById('btn-view-donut');
+
+            if (view === 'bar') {
+                btnBar.classList.add('active');
+                btnDonut.classList.remove('active');
+            } else {
+                btnDonut.classList.add('active');
+                btnBar.classList.remove('active');
+            }
+
+            renderDashboard();
+        }
+
+        // Render Full Dashboard Layout
+        function renderDashboard(dataToRender = departmentsData) {
+            const container = document.getElementById('departments-container');
+            container.innerHTML = '';
+
+            if (dataToRender.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-12 text-center bg-white rounded-2xl border border-slate-200">
+                        <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-slate-500 font-medium">No se encontraron departamentos con el filtro seleccionado.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataToRender.forEach((dept, index) => {
+                if (activeView === 'bar') {
+                    container.innerHTML += createBarCardHTML(dept, index);
+                } else {
+                    container.innerHTML += createDonutCardHTML(dept, index);
+                }
+            });
+
+            // Re-initialize dynamic charts
+            setTimeout(() => {
+                if (activeView === 'bar') initBarCharts(dataToRender);
+                else initDonutCharts(dataToRender);
+            }, 50);
+        }
+
+        // Update Header Dynamic KPIs
+        function updateGlobalMetrics() {
+            let acumulado = 0, nuevos = 0, activos = 0, cerrados = 0;
+
+            departmentsData.forEach(d => {
+                acumulado += d.total;
+                nuevos += d.nuevo;
+                activos += d.activo;
+                cerrados += d.cerrado;
+            });
+
+            document.getElementById('stat-total-acumulado').textContent = acumulado.toLocaleString();
+            document.getElementById('stat-total-nuevos').textContent = nuevos;
+            document.getElementById('stat-total-activos').textContent = activos;
+            document.getElementById('stat-total-cerrados').textContent = cerrados.toLocaleString();
+            document.getElementById('stat-total-abiertos').textContent = nuevos + activos;
+        }
+
+        // Open Detail Drill-down Modal
+        function openDetailModal(index) {
+            const dept = departmentsData[index];
+            if (!dept) return;
+
+            document.getElementById('modal-title').textContent = dept.name;
+            document.getElementById('modal-stat-total').textContent = dept.total;
+            document.getElementById('modal-stat-nuevo').textContent = dept.nuevo;
+            document.getElementById('modal-stat-activo').textContent = dept.activo;
+            document.getElementById('modal-stat-cerrado').textContent = dept.cerrado;
+            document.getElementById('modal-days-count').textContent = `${dept.diasSinIncidentes} DÍAS SIN INCIDENTES`;
+
+            // Populate table with tickets
+            const tableBody = document.getElementById('modal-tickets-table');
+            tableBody.innerHTML = '';
+
+            if (dept.tickets && dept.tickets.length > 0) {
+                dept.tickets.forEach(ticket => {
+                    const badgeColor = ticket.status === 'Nuevo' ? 'bg-orange-100 text-[#FF4A33]' :
+                                       ticket.status === 'Activo' ? 'bg-blue-100 text-[#537892]' : 'bg-emerald-100 text-emerald-800';
+                    const priorityColor = ticket.priority === 'Crítica' ? 'text-[#FF4A33] font-extrabold' :
+                                          ticket.priority === 'Alta' ? 'text-orange-600 font-bold' : 'text-slate-600';
+
+                    tableBody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-3 font-mono font-bold text-[#1A2733]">${ticket.id}</td>
+                            <td class="p-3 font-medium text-slate-700">${ticket.title}</td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${ticket.status}</span>
+                            </td>
+                            <td class="p-3 ${priorityColor}">${ticket.priority}</td>
+                            <td class="p-3 text-right font-medium text-[#537892]">${ticket.sla}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-4 text-center text-slate-400">Sin tickets críticos en atención en este momento.</td>
+                    </tr>
+                `;
+            }
+
+            // Show modal
+            const modal = document.getElementById('detail-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        // Close Modal
+        function closeModal() {
+            const modal = document.getElementById('detail-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        // Filter Departments by search text and status dropdown
+        function filterDepartments() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+
+            const filtered = departmentsData.filter(dept => {
+                const matchesSearch = dept.name.toLowerCase().includes(searchTerm);
+                
+                let matchesStatus = true;
+                if (statusFilter === 'open') {
+                    matchesStatus = (dept.nuevo + dept.activo) > 0;
+                } else if (statusFilter === 'resolved') {
+                    matchesStatus = (dept.nuevo + dept.activo) === 0;
+                }
+
+                return matchesSearch && matchesStatus;
+            });
+
+            renderDashboard(filtered);
+        }
+
+        // Refresh Data Simulation
+        function refreshData() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('fa-spin');
+            
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+                updateGlobalMetrics();
+                filterDepartments();
+                showToast('Datos de incidencias sincronizados correctamente');
+            }, 600);
+        }
+
+        // Toast Notification System
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-[#1A2733] text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 pointer-events-auto border border-[#537892] transform translate-y-2 opacity-0 transition-all duration-200';
+            toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i> ${message}`;
+            
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 200);
+            }, 3000);
+        }
+
+        // Open Live Data Editor Modal
+        function openDataEditorModal() {
+            const container = document.getElementById('editor-rows-container');
+            container.innerHTML = '';
+
+            departmentsData.forEach((dept, idx) => {
+                container.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors" id="editor-row-${idx}">
+                        <td class="p-2">
+                            <input type="text" value="${dept.name}" class="input-name w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-bold text-[#1A2733] focus:outline-none focus:ring-2 focus:ring-[#537892]">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" min="0" value="${dept.nuevo}" class="input-nuevo w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-[#FF4A33] focus:outline-none focus:ring-2 focus:ring-[#FF4A33]">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" min="0" value="${dept.activo}" class="input-activo w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-[#537892] focus:outline-none focus:ring-2 focus:ring-[#537892]">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" min="0" value="${dept.cerrado}" class="input-cerrado w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" min="0" value="${dept.diasSinIncidentes}" class="input-dias w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#537892]">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="removeEditorRow(${idx})" class="text-rose-500 hover:text-rose-700 p-1" title="Eliminar fila">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const modal = document.getElementById('data-editor-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        // Close Data Editor Modal
+        function closeDataEditorModal() {
+            const modal = document.getElementById('data-editor-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        // Add New Row to Editor
+        function addNewDepartmentRow() {
+            const container = document.getElementById('editor-rows-container');
+            const newIndex = container.children.length;
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-slate-50 transition-colors';
+            row.id = `editor-row-${newIndex}`;
+            row.innerHTML = `
+                <td class="p-2">
+                    <input type="text" placeholder="Nuevo Departamento" class="input-name w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-bold text-[#1A2733] focus:outline-none focus:ring-2 focus:ring-[#537892]">
+                </td>
+                <td class="p-2">
+                    <input type="number" min="0" value="0" class="input-nuevo w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-[#FF4A33]">
+                </td>
+                <td class="p-2">
+                    <input type="number" min="0" value="0" class="input-activo w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-[#537892]">
+                </td>
+                <td class="p-2">
+                    <input type="number" min="0" value="0" class="input-cerrado w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-semibold text-emerald-600">
+                </td>
+                <td class="p-2">
+                    <input type="number" min="0" value="0" class="input-dias w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 font-medium text-slate-700">
+                </td>
+                <td class="p-2 text-center">
+                    <button onclick="this.closest('tr').remove()" class="text-rose-500 hover:text-rose-700 p-1" title="Eliminar fila">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            `;
+            container.appendChild(row);
+        }
+
+        // Remove Editor Row
+        function removeEditorRow(index) {
+            const row = document.getElementById(`editor-row-${index}`);
+            if (row) row.remove();
+        }
+
+        // Save Data From Editor
+        function saveDataFromEditor() {
+            const container = document.getElementById('editor-rows-container');
+            const rows = container.querySelectorAll('tr');
+            const newDataset = [];
+
+            rows.forEach((row, i) => {
+                const name = row.querySelector('.input-name').value.trim() || `Depto ${i + 1}`;
+                const nuevo = parseInt(row.querySelector('.input-nuevo').value) || 0;
+                const activo = parseInt(row.querySelector('.input-activo').value) || 0;
+                const cerrado = parseInt(row.querySelector('.input-cerrado').value) || 0;
+                const dias = parseInt(row.querySelector('.input-dias').value) || 0;
+
+                // Preserve existing tickets array if present
+                const existing = departmentsData.find(d => d.name === name);
+                const tickets = existing && existing.tickets ? existing.tickets : [];
+
+                newDataset.push({
+                    name: name,
+                    total: nuevo + activo + cerrado,
+                    nuevo: nuevo,
+                    activo: activo,
+                    cerrado: cerrado,
+                    diasSinIncidentes: dias,
+                    tickets: tickets
+                });
+            });
+
+            departmentsData = newDataset;
+            localStorage.setItem('tekuno_departments_data', JSON.stringify(departmentsData));
+
+            closeDataEditorModal();
+            updateGlobalMetrics();
+            filterDepartments();
+            showToast('Datos actualizados y guardados correctamente');
+        }
+
+        // Reset Data to Original Defaults
+        function resetDataToDefault() {
+            departmentsData = JSON.parse(JSON.stringify(defaultDepartmentsData));
+            localStorage.removeItem('tekuno_departments_data');
+            closeDataEditorModal();
+            updateGlobalMetrics();
+            filterDepartments();
+            showToast('Valores restablecidos a su configuración original');
+        }
+
+        // Initialize App on DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            updateGlobalMetrics();
+            renderDashboard();
+        });
+    </script>
+</body>
+</html>
